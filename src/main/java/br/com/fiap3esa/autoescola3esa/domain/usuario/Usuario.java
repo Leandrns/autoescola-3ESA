@@ -26,9 +26,12 @@ public class Usuario implements UserDetails {
     private String login;
     private String senha;
 
+    @Enumerated(EnumType.STRING)
+    private Perfil perfil;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + perfil.name()));
     }
 
     @Override

@@ -1,13 +1,16 @@
 package br.com.fiap3esa.autoescola3esa.controller;
 
-import br.com.fiap3esa.autoescola3esa.domain.instrutor.*;
+import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosAtualizacaoInstrutor;
+import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosCadastroInstrutor;
+import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosDetalhamentoInstrutor;
+import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosListagemInstrutor;
 import br.com.fiap3esa.autoescola3esa.service.InstrutorService;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -23,6 +26,7 @@ public class InstrutorController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DadosDetalhamentoInstrutor> cadastrarInstrutor(
             @RequestBody @Valid DadosCadastroInstrutor dados,
             UriComponentsBuilder uriBuilder) {
@@ -35,25 +39,28 @@ public class InstrutorController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<Page<DadosListagemInstrutor>> listarInstrutores(
             @PageableDefault(size = 10, sort = "nome") Pageable paginacao) {
         return ResponseEntity.ok(service.listarInstrutores(paginacao));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DadosDetalhamentoInstrutor> detalharInstrutor(
             @PathVariable Long id) {
         return ResponseEntity.ok(service.detalharInstrutor(id));
     }
 
     @PutMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DadosDetalhamentoInstrutor> atualizarInstrutor(
             @RequestBody @Valid DadosAtualizacaoInstrutor dados) {
         return ResponseEntity.ok(service.atualizarInstrutor(dados));
     }
 
     @DeleteMapping("/{id}")
-    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> excluirInstrutor(@PathVariable Long id) {
         service.excluirInstrutor(id);
         return ResponseEntity.noContent().build();
