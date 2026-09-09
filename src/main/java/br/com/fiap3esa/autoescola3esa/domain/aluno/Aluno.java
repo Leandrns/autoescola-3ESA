@@ -22,9 +22,6 @@ public class Aluno {
     private String telefone;
     private String cpf;
 
-    @Enumerated(EnumType.STRING)
-    private Categoria categoria;
-
     @Embedded
     private Endereco endereco;
     private boolean ativo = true;
@@ -34,7 +31,6 @@ public class Aluno {
         this.email = dados.email();
         this.telefone = dados.telefone();
         this.cpf = dados.cpf();
-        this.categoria = dados.categoria();
         this.endereco = new Endereco(dados.endereco());
     }
 
@@ -47,9 +43,6 @@ public class Aluno {
         }
         if(dados.telefone() != null && !dados.telefone().isBlank()) {
             this.telefone = dados.telefone();
-        }
-        if(dados.categoria() != null) {
-            this.categoria = dados.categoria();
         }
         if(dados.endereco() != null) {
             this.endereco.atualizarInformacoes(dados.endereco());

@@ -9,6 +9,5 @@ public record DadosAtualizacaoAluno(
         String nome,
         String email,
         String telefone,
-        Categoria categoria,
         DadosEndereco endereco) {
 }

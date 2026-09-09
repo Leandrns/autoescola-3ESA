@@ -22,9 +22,6 @@ public record DadosCadastroAluno(
         @Pattern(regexp = "[0-9]{11}")
         String cpf,
 
-        @NotNull
-        Categoria categoria,
-
         @Valid
         DadosEndereco endereco) {
 }
