@@ -1,5 +1,6 @@
 package br.com.fiap3esa.autoescola3esa.infra.exception;
 
+import br.com.fiap3esa.autoescola3esa.domain.instrucao.InstrucaoNotFoundException;
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.InstrutorNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,16 @@ public class TratadorGlobalErros {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<DadosMessageNotFound> tratarGenericException(Exception e) {
         return ResponseEntity.unprocessableContent().body(new DadosMessageNotFound(e.getMessage()));
+    }
+
+    @ExceptionHandler(RegraNegocioException.class)
+    public ResponseEntity<DadosMessageNotFound> tratarRegraNegocio(RegraNegocioException e) {
+        return ResponseEntity.unprocessableEntity().body(new DadosMessageNotFound(e.getMessage()));
+    }
+
+    @ExceptionHandler(InstrucaoNotFoundException.class)
+    public ResponseEntity<DadosMessageNotFound> tratarInstrucaoNotFound(InstrucaoNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new DadosMessageNotFound(e.getMessage()));
     }
 
     private record DadosBadRequest(String field, String message) {

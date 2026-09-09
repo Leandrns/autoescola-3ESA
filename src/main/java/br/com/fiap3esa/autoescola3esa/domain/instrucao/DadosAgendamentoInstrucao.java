@@ -1,4 +1,4 @@
-package br.com.fiap3esa.autoescola3esa.controller;
+package br.com.fiap3esa.autoescola3esa.domain.instrucao;
 
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.Especialidade;
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -16,6 +16,7 @@ public record DadosAgendamentoInstrucao(
         @JsonAlias("id_instrutor")
         Long idInstrutor,
 
+        @NotNull
         Especialidade especialidade,
 
         @Future
