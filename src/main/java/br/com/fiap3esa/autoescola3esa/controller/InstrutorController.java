@@ -5,7 +5,9 @@ import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosCadastroInstrutor;
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosDetalhamentoInstrutor;
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosListagemInstrutor;
 import br.com.fiap3esa.autoescola3esa.service.InstrutorService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -18,6 +20,7 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/instrutores")
+@SecurityRequirement(name = "bearer-key")
 public class InstrutorController {
     private final InstrutorService service;
 
@@ -41,7 +44,7 @@ public class InstrutorController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<Page<DadosListagemInstrutor>> listarInstrutores(
-            @PageableDefault(size = 10, sort = "nome") Pageable paginacao) {
+            @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable paginacao) {
         return ResponseEntity.ok(service.listarInstrutores(paginacao));
     }
 
