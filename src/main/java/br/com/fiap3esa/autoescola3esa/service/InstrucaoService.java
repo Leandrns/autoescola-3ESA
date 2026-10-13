@@ -1,22 +1,26 @@
 package br.com.fiap3esa.autoescola3esa.service;
 
-import br.com.fiap3esa.autoescola3esa.domain.instrucao.*;
 import br.com.fiap3esa.autoescola3esa.domain.aluno.Aluno;
 import br.com.fiap3esa.autoescola3esa.domain.aluno.AlunoNotFoundException;
 import br.com.fiap3esa.autoescola3esa.domain.aluno.AlunoRepository;
+import br.com.fiap3esa.autoescola3esa.domain.instrucao.*;
+import br.com.fiap3esa.autoescola3esa.domain.instrutor.Especialidade;
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.Instrutor;
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.InstrutorNotFoundException;
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.InstrutorRepository;
 import br.com.fiap3esa.autoescola3esa.infra.exception.RegraNegocioException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class InstrucaoService {
@@ -31,14 +35,19 @@ public class InstrucaoService {
     private final InstrucaoRepository repository;
     private final AlunoRepository alunoRepository;
     private final InstrutorRepository instrutorRepository;
+    private final Clock clock;
 
     public InstrucaoService(InstrucaoRepository repository,
                             AlunoRepository alunoRepository,
-                            InstrutorRepository instrutorRepository) {
+                            InstrutorRepository instrutorRepository,
+                            Clock clock) {
         this.repository = repository;
         this.alunoRepository = alunoRepository;
         this.instrutorRepository = instrutorRepository;
+        this.clock = clock;
     }
+
+    // ------------------------------------------------------------------ agendamento
 
     @Transactional
     public DadosDetalhamentoInstrucao agendarInstrucao(DadosAgendamentoInstrucao dados) {
@@ -46,16 +55,19 @@ public class InstrucaoService {
                 .orElseThrow(() -> new AlunoNotFoundException("ID do aluno informado não existe!"));
 
         validarAlunoAtivo(aluno);
+        validarHoraInteira(dados.dataHora());
         validarHorarioFuncionamento(dados.dataHora());
         validarAntecedenciaMinima(dados.dataHora());
         validarLimiteDiarioDoAluno(aluno, dados.dataHora());
 
         Instrutor instrutor = definirInstrutor(dados);
 
-        Instrucao instrucao = new Instrucao(aluno, instrutor, dados.especialidade(), dados.dataHora());
+        Instrucao instrucao = new Instrucao(aluno, instrutor, instrutor.getEspecialidade(), dados.dataHora());
         Instrucao salva = repository.save(instrucao);
         return new DadosDetalhamentoInstrucao(salva);
     }
+
+    // ------------------------------------------------------------------ cancelamento
 
     @Transactional
     public DadosDetalhamentoInstrucao cancelarInstrucao(Long id, DadosCancelamentoInstrucao dados) {
@@ -65,34 +77,26 @@ public class InstrucaoService {
         validarInstrucaoAindaAgendada(instrucao);
         validarAntecedenciaMinimaCancelamento(instrucao);
 
-        instrucao.cancelar(dados.motivoCancelamento());
+        instrucao.cancelar(dados.motivoCancelamento(), LocalDateTime.now(clock));
         Instrucao salva = repository.save(instrucao);
         return new DadosDetalhamentoInstrucao(salva);
     }
 
-    // Horário de funcionamento: seg-sáb, 06:00-21:00
-    private void validarHorarioFuncionamento(LocalDateTime dataHora) {
-        if (dataHora.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            throw new RegraNegocioException("A auto-escola não funciona aos domingos.");
-        }
+    // ------------------------------------------------------------------ consultas
 
-        LocalTime inicio = dataHora.toLocalTime();
-        LocalTime fim = inicio.plus(DURACAO_INSTRUCAO); // a instrução dura 1h fixa
-
-        if (inicio.isBefore(ABERTURA) || fim.isAfter(FECHAMENTO)) {
-            throw new RegraNegocioException(
-                    "As instruções só podem começar entre " + ABERTURA + " e " +
-                            FECHAMENTO.minusHours(1) + " (a instrução dura 1h e a escola fecha às " + FECHAMENTO + ").");
-        }
+    @Transactional(readOnly = true)
+    public Page<DadosDetalhamentoInstrucao> listarInstrucoes(Pageable paginacao) {
+        return repository.findAll(paginacao).map(DadosDetalhamentoInstrucao::new);
     }
 
-    // Antecedência mínima de 30 minutos
-    private void validarAntecedenciaMinima(LocalDateTime dataHora) {
-        if (Duration.between(LocalDateTime.now(), dataHora).compareTo(ANTECEDENCIA_MINIMA) < 0) {
-            throw new RegraNegocioException(
-                    "As instruções devem ser agendadas com, no mínimo, 30 minutos de antecedência.");
-        }
+    @Transactional(readOnly = true)
+    public DadosDetalhamentoInstrucao detalharInstrucao(Long id) {
+        Instrucao instrucao = repository.findById(id)
+                .orElseThrow(() -> new InstrucaoNotFoundException("ID da instrução informado não existe!"));
+        return new DadosDetalhamentoInstrucao(instrucao);
     }
+
+    // ------------------------------------------------------------------ regras de agendamento
 
     // Aluno inativo
     private void validarAlunoAtivo(Aluno aluno) {
@@ -101,18 +105,50 @@ public class InstrucaoService {
         }
     }
 
-    // Máximo de 2 instruções por dia por aluno
+    // Instruções sempre em hora cheia (a duração fixa de 1h evita sobreposição parcial de horários)
+    private void validarHoraInteira(LocalDateTime dataHora) {
+        if (dataHora.getMinute() != 0) {
+            throw new RegraNegocioException("O horário deve ser em hora cheia (ex.: 09:00, 13:00, 14:00).");
+        }
+    }
+
+    // Horário de funcionamento: seg-sáb, 06:00-21:00. A instrução dura 1h, então o último início é 20:00.
+    private void validarHorarioFuncionamento(LocalDateTime dataHora) {
+        if (dataHora.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            throw new RegraNegocioException("A auto-escola não funciona aos domingos.");
+        }
+
+        LocalTime inicio = dataHora.toLocalTime();
+        LocalTime ultimoInicioPermitido = FECHAMENTO.minus(DURACAO_INSTRUCAO);
+
+        if (inicio.isBefore(ABERTURA) || inicio.isAfter(ultimoInicioPermitido)) {
+            throw new RegraNegocioException(
+                    "As instruções só podem começar entre " + ABERTURA + " e " + ultimoInicioPermitido +
+                            " (a instrução dura 1h e a escola fecha às " + FECHAMENTO + ").");
+        }
+    }
+
+    // Antecedência mínima de 30 minutos
+    private void validarAntecedenciaMinima(LocalDateTime dataHora) {
+        if (Duration.between(LocalDateTime.now(clock), dataHora).compareTo(ANTECEDENCIA_MINIMA) < 0) {
+            throw new RegraNegocioException(
+                    "As instruções devem ser agendadas com, no mínimo, 30 minutos de antecedência.");
+        }
+    }
+
+    // Máximo de 2 instruções (agendadas) por dia por aluno
     private void validarLimiteDiarioDoAluno(Aluno aluno, LocalDateTime dataHora) {
         LocalDateTime inicioDoDia = dataHora.toLocalDate().atStartOfDay();
         LocalDateTime fimDoDia = inicioDoDia.plusDays(1);
 
-        long quantidade = repository.countByAlunoAndDataHoraBetweenAndStatus(aluno, inicioDoDia, fimDoDia, StatusInstrucao.AGENDADA);
+        long quantidade = repository.countByAlunoAndDataHoraBetweenAndStatus(
+                aluno, inicioDoDia, fimDoDia, StatusInstrucao.AGENDADA);
         if (quantidade >= MAX_INSTRUCOES_POR_DIA) {
             throw new RegraNegocioException("O aluno já atingiu o limite de duas instruções neste dia.");
         }
     }
 
-    // Instrutor: informado (valida) ou nulo (sorteia)
+    // Instrutor: informado (valida) ou nulo (sorteia entre os disponíveis da especialidade)
     private Instrutor definirInstrutor(DadosAgendamentoInstrucao dados) {
         if (dados.idInstrutor() != null) {
             Instrutor instrutor = instrutorRepository.findById(dados.idInstrutor())
@@ -121,30 +157,40 @@ public class InstrucaoService {
             if (!instrutor.isAtivo()) {
                 throw new RegraNegocioException("Não é possível agendar instrução com um instrutor inativo.");
             }
-            if (repository.existsByInstrutorAndDataHoraAndStatus(instrutor, dados.dataHora(), StatusInstrucao.AGENDADA)) {
+            if (dados.especialidade() != null && dados.especialidade() != instrutor.getEspecialidade()) {
+                throw new RegraNegocioException(
+                        "A especialidade informada não corresponde à especialidade do instrutor.");
+            }
+            if (instrutorOcupado(instrutor, dados.dataHora())) {
                 throw new RegraNegocioException("O instrutor já possui uma instrução agendada nesse horário.");
             }
             return instrutor;
         }
 
-        return sortearInstrutorDisponivel(dados);
+        if (dados.especialidade() == null) {
+            throw new RegraNegocioException("A especialidade é obrigatória quando o instrutor não é informado.");
+        }
+        return sortearInstrutorDisponivel(dados.especialidade(), dados.dataHora());
     }
 
-    // Escolha aleatória de instrutor disponível
-    private Instrutor sortearInstrutorDisponivel(DadosAgendamentoInstrucao dados) {
-        List<Instrutor> candidatos =
-                instrutorRepository.findAllByAtivoTrueAndEspecialidade(dados.especialidade());
-
-        List<Instrutor> disponiveis = candidatos.stream()
-                .filter(instrutor -> !repository.existsByInstrutorAndDataHoraAndStatus(instrutor, dados.dataHora(), StatusInstrucao.AGENDADA))
+    private Instrutor sortearInstrutorDisponivel(Especialidade especialidade, LocalDateTime dataHora) {
+        List<Instrutor> disponiveis = instrutorRepository.findAllByAtivoTrueAndEspecialidade(especialidade)
+                .stream()
+                .filter(instrutor -> !instrutorOcupado(instrutor, dataHora))
                 .toList();
 
         if (disponiveis.isEmpty()) {
             throw new RegraNegocioException("Não há instrutores disponíveis nesse horário.");
         }
 
-        return disponiveis.get(new Random().nextInt(disponiveis.size()));
+        return disponiveis.get(ThreadLocalRandom.current().nextInt(disponiveis.size()));
     }
+
+    private boolean instrutorOcupado(Instrutor instrutor, LocalDateTime dataHora) {
+        return repository.existsByInstrutorAndDataHoraAndStatus(instrutor, dataHora, StatusInstrucao.AGENDADA);
+    }
+
+    // ------------------------------------------------------------------ regras de cancelamento
 
     private void validarInstrucaoAindaAgendada(Instrucao instrucao) {
         if (instrucao.getStatus() == StatusInstrucao.CANCELADA) {
@@ -152,8 +198,9 @@ public class InstrucaoService {
         }
     }
 
+    // Cancelamento somente com 24h (ou mais) de antecedência
     private void validarAntecedenciaMinimaCancelamento(Instrucao instrucao) {
-        Duration antecedencia = Duration.between(LocalDateTime.now(), instrucao.getDataHora());
+        Duration antecedencia = Duration.between(LocalDateTime.now(clock), instrucao.getDataHora());
         if (antecedencia.compareTo(ANTECEDENCIA_MINIMA_CANCELAMENTO) < 0) {
             throw new RegraNegocioException(
                     "O cancelamento só pode ser feito com, no mínimo, 24 horas de antecedência.");

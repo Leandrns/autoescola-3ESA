@@ -6,6 +6,7 @@ import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosDetalhamentoInstruto
 import br.com.fiap3esa.autoescola3esa.domain.instrutor.DadosListagemInstrutor;
 import br.com.fiap3esa.autoescola3esa.service.InstrutorService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,7 @@ import java.net.URI;
 @RestController
 @RequestMapping("/instrutores")
 @SecurityRequirement(name = "bearer-key")
+@Tag(name = "Instrutores", description = "CRUD de instrutores")
 public class InstrutorController {
     private final InstrutorService service;
 

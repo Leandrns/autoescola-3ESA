@@ -16,7 +16,7 @@ public record DadosAgendamentoInstrucao(
         @JsonAlias("id_instrutor")
         Long idInstrutor,
 
-        @NotNull
+        // Obrigatória somente quando o instrutor NÃO é informado (a regra é validada no InstrucaoService).
         Especialidade especialidade,
 
         @Future
