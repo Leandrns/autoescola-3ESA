@@ -29,6 +29,20 @@ public class Usuario implements UserDetails {
     @Enumerated(EnumType.STRING)
     private Perfil perfil;
 
+    public Usuario(String login, String senhaCriptografada, Perfil perfil) {
+        this.login = login;
+        this.senha = senhaCriptografada;
+        this.perfil = perfil;
+    }
+
+    public void atualizarSenha(String senhaCriptografada) {
+        this.senha = senhaCriptografada;
+    }
+
+    public void atualizarPerfil(Perfil perfil) {
+        this.perfil = perfil;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + perfil.name()));

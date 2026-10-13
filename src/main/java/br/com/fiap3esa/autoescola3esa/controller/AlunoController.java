@@ -5,8 +5,11 @@ import br.com.fiap3esa.autoescola3esa.domain.aluno.DadosCadastroAluno;
 import br.com.fiap3esa.autoescola3esa.domain.aluno.DadosDetalhamentoAluno;
 import br.com.fiap3esa.autoescola3esa.domain.aluno.DadosListagemAluno;
 import br.com.fiap3esa.autoescola3esa.service.AlunoService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -18,6 +21,8 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/alunos")
+@SecurityRequirement(name = "bearer-key")
+@Tag(name = "Alunos", description = "CRUD de alunos")
 public class AlunoController {
     private final AlunoService service;
 
@@ -39,7 +44,7 @@ public class AlunoController {
 
     @GetMapping
     public ResponseEntity<Page<DadosListagemAluno>> listarAlunos(
-            @PageableDefault(size = 10, sort = "nome") Pageable paginacao) {
+            @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable paginacao) {
         return ResponseEntity.ok(service.listarAlunos(paginacao));
     }
 

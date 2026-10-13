@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Entity(name = "instrucao")
+@Entity(name = "Instrucao")
 @Table(name = "instrucoes")
 @NoArgsConstructor
 @Getter
@@ -49,9 +49,10 @@ public class Instrucao {
         this.status = StatusInstrucao.AGENDADA;
     }
 
-    public void cancelar(MotivoCancelamento motivo) {
+    /** O momento do cancelamento é recebido por parâmetro (vem do Clock do service) para facilitar os testes. */
+    public void cancelar(MotivoCancelamento motivo, LocalDateTime momentoDoCancelamento) {
         this.status = StatusInstrucao.CANCELADA;
         this.motivoCancelamento = motivo;
-        this.dataCancelamento = LocalDateTime.now();
+        this.dataCancelamento = momentoDoCancelamento;
     }
 }
